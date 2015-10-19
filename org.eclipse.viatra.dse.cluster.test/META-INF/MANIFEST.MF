@@ -1,0 +1,14 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Test
+Bundle-SymbolicName: org.eclipse.viatra.dse.cluster.test;singleton:=true
+Bundle-Version: 1.0.0.qualifier
+Bundle-Activator: org.eclipse.viatra.dse.cluster.test.Activator
+Require-Bundle: org.eclipse.core.runtime,
+ org.eclipse.viatra.dse.cluster;bundle-version="1.0.0",
+ org.eclipse.viatra.dse.examples.bpmn.model;bundle-version="0.8.0",
+ org.eclipse.viatra.dse.examples.bpmn.patterns;bundle-version="0.8.0",
+ org.eclipse.viatra.dse.examples.bpmn.dse;bundle-version="0.8.0",
+ org.eclipse.viatra.dse.base;bundle-version="0.8.0"
+Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Bundle-ActivationPolicy: lazy

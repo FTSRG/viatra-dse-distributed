@@ -1,0 +1,7 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Config
+Bundle-SymbolicName: config
+Bundle-Version: 1.2.1
+Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Export-Package: com.typesafe.config

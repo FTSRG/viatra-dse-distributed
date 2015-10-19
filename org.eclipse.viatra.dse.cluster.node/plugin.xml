@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+   <extension
+         id="standalone_id"
+         point="org.eclipse.core.runtime.applications">
+      <application
+            cardinality="singleton-global"
+            thread="main"
+            visible="true">
+         <run
+               class="org.eclipse.viatra.dse.cluster.node.StandaloneClient">
+         </run>
+      </application>
+   </extension>
+   <extension
+         id="product"
+         point="org.eclipse.core.runtime.products">
+      <product
+            application="org.eclipse.viatra.dse.cluster.node.standalone_id"
+            name="name">
+         <property
+               name="appName"
+               value="DSE Standalone Cluster Client">
+         </property>
+      </product>
+   </extension>
+   <extension
+         point="org.eclipse.core.runtime.products">
+      <product
+            application="org.eclipse.viatra.dse.cluster.node.server"
+            name="name">
+         <property
+               name="appName"
+               value="DSE Standalone Cluster Server">
+         </property>
+      </product>
+   </extension>
+   <extension
+         id="server_id"
+         point="org.eclipse.core.runtime.applications">
+      <application
+            cardinality="singleton-global"
+            thread="main"
+            visible="true">
+         <run
+               class="org.eclipse.viatra.dse.cluster.node.Application1">
+         </run>
+      </application>
+   </extension>
+
+
+</plugin>

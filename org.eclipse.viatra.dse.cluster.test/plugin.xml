@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+   <extension
+         id="cluster_server_id"
+         point="org.eclipse.core.runtime.applications">
+      <application
+            cardinality="singleton-global"
+            thread="main"
+            visible="true">
+         <run
+               class="org.eclipse.viatra.dse.cluster.test.DSEServer">
+         </run>
+      </application>
+   </extension>
+   <extension
+         point="org.eclipse.core.runtime.products">
+      <product
+            application="cluster_server_id"
+            name="name">
+         <property
+               name="appName"
+               value="DSE Standalone Cluster Server">
+         </property>
+      </product>
+   </extension>
+
+</plugin>
