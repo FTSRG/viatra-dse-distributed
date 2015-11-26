@@ -2,12 +2,15 @@ package org.eclipse.viatra.dse.cluster.node;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.log4j.Logger;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
 import org.eclipse.viatra.dse.api.DesignSpaceExplorer;
+import org.eclipse.viatra.dse.cluster.IDesignSpaceChange;
+import org.eclipse.viatra.dse.cluster.RemoteDesignSpaceSynchronizer;
 import org.eclipse.viatra.dse.cluster.interfaces.IProblemServer;
 import org.eclipse.viatra.dse.cluster.interfaces.IProcessingClient;
 import org.eclipse.viatra.dse.cluster.interfaces.IRemoteDesignSpace;
@@ -26,6 +29,7 @@ public class Client implements IProcessingClient {
 	private Integer fixedThreads = null;
 
 	private final Map<String, DesignSpaceExplorer> explorers = new HashMap<String, DesignSpaceExplorer>();
+	final Map<String, RemoteDesignSpaceSynchronizer> syncer = new HashMap<String, RemoteDesignSpaceSynchronizer>();
 	private final Map<String, IProblemServer> explorerActors = new HashMap<String, IProblemServer>();
 	private final Map<String, IRemoteDesignSpace> designSpaceActors = new HashMap<String, IRemoteDesignSpace>();
 
@@ -83,7 +87,8 @@ public class Client implements IProcessingClient {
 	 * Entry point for a new work.
 	 */
 	@Override
-	public void submitProblem(String recallAddress, String designSpaceAddress, String initiatorClass, String initalStateXMI) {
+	public void submitProblem(String recallAddress, String designSpaceAddress, String initiatorClass,
+			String initalStateXMI, String identifier) {
 		log.info("Problem received. Recall address: " + recallAddress + " Init class: " + initiatorClass);
 
 		// get local actorRef
@@ -111,7 +116,7 @@ public class Client implements IProcessingClient {
 
 			log.info("Intantiated initiator class named: " + instance.getClass().getName());
 
-			ClientConfigurator configurator = new ClientConfigurator(this, recallAddress, initalStateXMI);
+			ClientConfigurator configurator = new ClientConfigurator(this, recallAddress, initalStateXMI, identifier);
 			configurator.setFixedThreads(fixedThreads);
 			new Thread(configurator).start();
 		} catch (InstantiationException e) {
@@ -134,8 +139,6 @@ public class Client implements IProcessingClient {
 		switch (designSpaceExplorer.getGlobalContext().getState()) {
 		case NOT_STARTED:
 			return ExplorationNodeState.TASK_RECEIVED;
-		case WAITING_FOR_NEW_ROOT:
-			return ExplorationNodeState.WAITING_FOR_NEW_ROOT;
 		case RUNNING:
 		case STOPPING:
 			return ExplorationNodeState.PROCESSING;
@@ -148,12 +151,17 @@ public class Client implements IProcessingClient {
 
 	@Override
 	public void requestWorkableState(String recallAddress) {
-		DesignSpaceExplorer designSpaceExplorer = explorers.get(recallAddress);
-		designSpaceExplorer.getGlobalContext().requestWorkableState();
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
 	public void fixThreads(int threadCount) {
 		fixedThreads = threadCount;
+	}
+
+	@Override
+	public void doUpdates(List<IDesignSpaceChange> changes, String recallAddress) {
+		RemoteDesignSpaceSynchronizer remoteDesignSpaceSynchronizer = syncer.get(recallAddress);
+		remoteDesignSpaceSynchronizer.processIncomingChanges(changes);
 	}
 }

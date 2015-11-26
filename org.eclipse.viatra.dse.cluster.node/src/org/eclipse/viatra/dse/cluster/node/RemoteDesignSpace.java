@@ -3,13 +3,9 @@ package org.eclipse.viatra.dse.cluster.node;
 import java.io.IOException;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.eclipse.viatra.dse.cluster.RemoteTransitionMetaData;
 import org.eclipse.viatra.dse.cluster.interfaces.IRemoteDesignSpace;
@@ -28,6 +24,7 @@ import org.eclipse.viatra.dse.designspace.api.TransitionMetaData;
  * @author Miki
  * 
  */
+@Deprecated
 public class RemoteDesignSpace implements IDesignSpace {
 	private static final Logger log = Logger.getLogger(RemoteDesignSpace.class.getName());
 	static {
@@ -129,6 +126,11 @@ public class RemoteDesignSpace implements IDesignSpace {
 		remoteActor.addRoot(root.getId());
 	}
 
+	/**
+	 * This method adds the newly discovered state to the designspace.
+	 * 
+	 * If it is already in the designspace, then it is simply ignored.
+	 */
 	@Override
 	public boolean addState(ITransition sourceTransition, Object newStateId, Map<Object, TransitionMetaData> outgoingTransitionIds) {
 
@@ -147,10 +149,11 @@ public class RemoteDesignSpace implements IDesignSpace {
 		}
 
 		if (sourceTransition == null) {
-			return remoteActor.addState(null, null, newStateId, fakedTransitionIds);
+			remoteActor.addStateAsync(null, null, newStateId, fakedTransitionIds);
 		} else {
-			return remoteActor.addState(sourceTransition.getFiredFrom().getId(), sourceTransition.getId(), newStateId, fakedTransitionIds);
+			remoteActor.addStateAsync(sourceTransition.getFiredFrom().getId(), sourceTransition.getId(), newStateId, fakedTransitionIds);
 		}
+		return true;
 	}
 
 	@Override
@@ -212,6 +215,17 @@ public class RemoteDesignSpace implements IDesignSpace {
 		throw new UnsupportedOperationException();
 	}
 
+	@Override
+	public void addRoot(IState root, boolean notify) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public boolean addState(ITransition sourceTransition, Object newStateId,
+			Map<Object, TransitionMetaData> outgoingTransitionIds, boolean notify) {
+		throw new UnsupportedOperationException();
+	}
+
 //	@Override
 //	public void addSolution(List<ITransition> transitions) {
 //		List<IRemoteDesignSpace.TransitionId> transitionsIds = new ArrayList<IRemoteDesignSpace.TransitionId>();
@@ -227,18 +241,4 @@ public class RemoteDesignSpace implements IDesignSpace {
 //		throw new UnsupportedOperationException("Remote solution retrieval is not supported at this time!");
 //	}
 
-	@Override
-	public Collection<IState> getWorkableStates() {
-		ArrayList<IState> workableStates = new ArrayList<IState>();
-		for (Object state : remoteActor.getWorkableStates()) {
-			workableStates.add(getLocalState(state));
-		}
-
-		return workableStates;
-	}
-
-	@Override
-	public void attachXMIToState(IState state, String xmi) {
-		remoteActor.attachXMIModelState(state.getId(), xmi);
-	}
 }

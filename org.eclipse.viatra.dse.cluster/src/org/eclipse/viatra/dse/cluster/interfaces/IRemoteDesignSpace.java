@@ -4,11 +4,18 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import org.eclipse.viatra.dse.designspace.api.IState.TraversalStateType;
+import org.eclipse.viatra.dse.cluster.IDesignSpaceChange;
 import org.eclipse.viatra.dse.cluster.RemoteTransitionMetaData;
-import org.eclipse.viatra.dse.designspace.api.TransitionMetaData;
+import org.eclipse.viatra.dse.designspace.api.IState.TraversalStateType;
+
+import scala.concurrent.Future;
 
 public interface IRemoteDesignSpace {
+	/**
+	 * TODO MOST of this interface is now obsolete!!!
+	 * @author Miki
+	 *
+	 */
 	public final class TransitionId {
 		public final Object sourceStateId;
 		public final Object transitionId;
@@ -38,6 +45,7 @@ public interface IRemoteDesignSpace {
 	Object[] getRoot();
 
 	boolean addState(Object transitionSourceState, Object transition, Object newState, Map<Object, RemoteTransitionMetaData> outgoingTransitions);
+	Future<Boolean> addStateAsync(Object transitionSourceState, Object transition, Object newState, Map<Object, RemoteTransitionMetaData> outgoingTransitions);
 
 	boolean doesStateExist(Object id);
 
@@ -71,11 +79,11 @@ public interface IRemoteDesignSpace {
 
 	boolean tryToLock(Object sourceStateId, Object id);
 
-//	void addSolutionTrajectory(List<TransitionId> transitions);
-
 	void attachXMIModelState(Object stateId, String xmiString);
 	
 	String getXMIModelState(Object stateId);
 	
 	List<String> getWorkableStates();
+
+	void doUpdates(List<IDesignSpaceChange> localChanges, String originator);
 }

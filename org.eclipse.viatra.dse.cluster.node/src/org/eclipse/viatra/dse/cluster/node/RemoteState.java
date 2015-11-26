@@ -8,6 +8,7 @@ import org.eclipse.viatra.dse.cluster.interfaces.IRemoteDesignSpace;
 import org.eclipse.viatra.dse.designspace.api.IState;
 import org.eclipse.viatra.dse.designspace.api.ITransition;
 
+@Deprecated
 public class RemoteState implements IState {
 
 	private static final Logger log = Logger.getLogger(RemoteState.class.getName());
@@ -91,15 +92,6 @@ public class RemoteState implements IState {
 		processed = true;
 	}
 
-	@Override
-	public void attachXMIModelState(String modelString) {
-		throw new UnsupportedOperationException("Do this through the IDesignSpaceInterface!");
-	}
-
-	@Override
-	public String getXMIModelState() {
-		return remoteActor.getXMIModelState(address);
-	}
 
 	private Collection<ITransition> retrieveOutgoingTransitions() {
 		Collection<ITransition> transitions = new ArrayList<ITransition>();

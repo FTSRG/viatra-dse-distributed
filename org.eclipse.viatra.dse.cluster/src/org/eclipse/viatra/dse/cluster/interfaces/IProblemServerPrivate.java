@@ -19,7 +19,11 @@ public interface IProblemServerPrivate extends IProblemServer {
 
 	List<String> getNodeAddresses();
 
+	String getRecallAddress();
+
 	boolean requestWorkableStatesFrom(String nodeAddress);
 
 	boolean restartNode(String nodeAddress, String stateXMI);
+
+	IProcessingClient getNode(String nodeAddress);
 }

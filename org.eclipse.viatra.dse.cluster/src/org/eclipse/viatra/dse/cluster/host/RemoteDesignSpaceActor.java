@@ -3,11 +3,17 @@ package org.eclipse.viatra.dse.cluster.host;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.log4j.Logger;
+import org.eclipse.viatra.dse.api.DSETransformationRule;
+import org.eclipse.viatra.dse.cluster.IDesignSpaceChange;
+import org.eclipse.viatra.dse.cluster.NewRootChange;
+import org.eclipse.viatra.dse.cluster.NewStateChange;
 import org.eclipse.viatra.dse.cluster.RemoteTransitionMetaData;
+import org.eclipse.viatra.dse.cluster.interfaces.IProcessingClient;
 import org.eclipse.viatra.dse.cluster.interfaces.IRemoteDesignSpace;
 import org.eclipse.viatra.dse.designspace.api.IDesignSpace;
 import org.eclipse.viatra.dse.designspace.api.IState;
@@ -16,6 +22,8 @@ import org.eclipse.viatra.dse.designspace.api.ITransition;
 import org.eclipse.viatra.dse.designspace.api.TransitionMetaData;
 
 import akka.actor.ActorSystem;
+import akka.dispatch.Futures;
+import scala.concurrent.Future;
 
 public class RemoteDesignSpaceActor implements IRemoteDesignSpace {
 
@@ -31,6 +39,9 @@ public class RemoteDesignSpaceActor implements IRemoteDesignSpace {
 		super();
 		this.cdse = cdse;
 		this.system = system;
+		for (String node : cdse.getNodes()) {
+			changeSet.put(node, new HashSet<IDesignSpaceChange>());
+		}
 		// this.localDesignSpace = cdse.getGlobalContext().getDesignSpace();
 	}
 
@@ -186,28 +197,147 @@ public class RemoteDesignSpaceActor implements IRemoteDesignSpace {
 
 	@Override
 	public void attachXMIModelState(Object stateId, String xmiString) {
-		IState state = localDesignSpace().getStateById(stateId);
-		localDesignSpace().attachXMIToState(state, xmiString);
-		log.info("XMI string attached to state " + stateId);
+		throw new UnsupportedOperationException();
+		// IState state = localDesignSpace().getStateById(stateId);
+		// localDesignSpace().attachXMIToState(state, xmiString);
+		// log.info("XMI string attached to state " + stateId);
 	}
 
 	@Override
 	public String getXMIModelState(Object stateId) {
-		return localDesignSpace().getStateById(stateId).getXMIModelState();
+		throw new UnsupportedOperationException();
+		// return localDesignSpace().getStateById(stateId).getXMIModelState();
 	}
 
 	@Override
 	public List<String> getWorkableStates() {
-		List<String> states = new ArrayList<String>();
-		for (IState stateId : localDesignSpace().getWorkableStates()) {
-			states.add(stateId.getXMIModelState());
-		}
-
-		return states;
+		throw new UnsupportedOperationException();
+		// List<String> states = new ArrayList<String>();
+		// for (IState stateId : localDesignSpace().getWorkableStates()) {
+		// states.add(stateId.getXMIModelState());
+		// }
+		//
+		// return states;
 	}
 
 	@Override
 	public long getNumberOfFiredTransitions() {
 		return 0;
 	}
+
+	@Override
+	public Future<Boolean> addStateAsync(Object transitionSourceState, Object transition, Object newState,
+			Map<Object, RemoteTransitionMetaData> outgoingTransitions) {
+		return Futures.successful(addState(transitionSourceState, transition, newState, outgoingTransitions));
+	}
+
+	public Map<String, Integer> incomingChanges = new HashMap<String, Integer>();
+
+	private List<IDesignSpaceChange> outOfOrderChanges = new ArrayList<IDesignSpaceChange>();
+
+	private void merge(IDesignSpaceChange change) {
+		if (change instanceof NewRootChange) {
+			NewRootChange newRootChange = (NewRootChange) change;
+
+			localDesignSpace().addState(null, newRootChange.getRootId(),
+					convertLocal(newRootChange.getOutgoingTransitions()), false);
+			System.out.println("DS root is now: " + localDesignSpace().getRoot());
+		}
+		if (change instanceof NewStateChange) {
+			NewStateChange newStateChange = (NewStateChange) change;
+			IState sourceState = localDesignSpace().getStateById(newStateChange.getSourceStateId());
+			if (sourceState != null) {
+
+				ITransition sourceTransition = null;
+				for (ITransition t : sourceState.getOutgoingTransitions()) {
+					if (t.getId().equals(newStateChange.getTransitionId())) {
+						sourceTransition = t;
+					}
+				}
+				if (sourceTransition == null) {
+					throw new Error();
+				}
+
+				localDesignSpace().addState(sourceTransition, newStateChange.getNewStateId(),
+						convertLocal(newStateChange.getOutgoingTransitions()), false);
+			} else {
+				outOfOrderChanges.add(change);
+			}
+		}
+	}
+
+	@Override
+	public void doUpdates(List<IDesignSpaceChange> remoteChanges, String originator) {
+		enqueueThirdPartyChanges(remoteChanges, originator);
+
+		Integer integer = incomingChanges.get(originator);
+		if (integer == null) {
+			incomingChanges.put(originator, remoteChanges.size());
+		} else {
+			incomingChanges.put(originator, integer + remoteChanges.size());
+		}
+		boolean insertLocally = true;
+		if (insertLocally) {
+			for (IDesignSpaceChange change : remoteChanges) {
+				merge(change);
+			}
+
+			while (!outOfOrderChanges.isEmpty()) {
+				List<IDesignSpaceChange> remainingOutOfOrderChanges = outOfOrderChanges;
+				outOfOrderChanges = new ArrayList<IDesignSpaceChange>();
+
+				for (IDesignSpaceChange change : remainingOutOfOrderChanges) {
+					merge(change);
+				}
+			}
+		}
+
+		List<IDesignSpaceChange> changeList = new ArrayList<IDesignSpaceChange>();
+		synchronized (changeSet) {
+			changeList.addAll(changeSet.get(originator));
+			changeSet.get(originator).clear();
+		}
+
+		if (!changeList.isEmpty()) {
+			IProcessingClient node = cdse.problemHostActor.getNode(originator);
+			System.out.println("pushing " + changeList.size() + " changes to " + originator);
+
+			node.doUpdates(changeList, cdse.problemHostActor.getRecallAddress());
+		}
+		// System.out.println("sending "+hashSet.size()+" changes to
+		// "+originator);
+
+		// System.out.println("Contributors:\n");
+		// for (String id : incomingChanges.keySet()) {
+		// System.out.println("id: " + id + ":\t" + incomingChanges.get(id));
+		// }
+
+		// return changeList;
+	}
+
+	public void enqueueThirdPartyChanges(Collection<IDesignSpaceChange> outgoing, String originator) {
+		synchronized (changeSet) {
+			for (String key : changeSet.keySet()) {
+				if (!key.equals(originator)) {
+					changeSet.get(key).addAll(outgoing);
+				}
+			}
+		}
+	}
+
+	private Map<Object, TransitionMetaData> convertLocal(Map<Object, RemoteTransitionMetaData> remoteMeta) {
+		Map<Object, TransitionMetaData> metadataMap = new HashMap<Object, TransitionMetaData>();
+		for (Object key : remoteMeta.keySet()) {
+			RemoteTransitionMetaData remoteTransitionMetaData = remoteMeta.get(key);
+			DSETransformationRule<?, ?> localRule = cdse.convertToLocalRule(remoteTransitionMetaData.ruleName);
+
+			TransitionMetaData transitionMetaData = new TransitionMetaData();
+			transitionMetaData.costs = remoteTransitionMetaData.costs;
+			transitionMetaData.rule = localRule;
+			metadataMap.put(key, transitionMetaData);
+		}
+		return metadataMap;
+	}
+
+	private final Map<String, Collection<IDesignSpaceChange>> changeSet = new HashMap<String, Collection<IDesignSpaceChange>>();
 }

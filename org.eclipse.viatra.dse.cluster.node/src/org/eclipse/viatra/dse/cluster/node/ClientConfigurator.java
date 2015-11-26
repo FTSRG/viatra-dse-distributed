@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -14,27 +13,20 @@ import org.apache.log4j.Logger;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EPackage;
-import org.eclipse.emf.ecore.EPackage.Registry;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.URIConverter;
-import org.eclipse.emf.ecore.resource.URIConverter.ReadableInputStream;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
-import org.eclipse.incquery.runtime.api.IMatchProcessor;
-import org.eclipse.incquery.runtime.api.IPatternMatch;
-import org.eclipse.incquery.runtime.api.IQuerySpecification;
-import org.eclipse.incquery.runtime.api.IncQueryMatcher;
 import org.eclipse.incquery.runtime.exception.IncQueryException;
 import org.eclipse.viatra.dse.api.DSETransformationRule;
 import org.eclipse.viatra.dse.api.DesignSpaceExplorer;
-import org.eclipse.viatra.dse.api.PatternWithCardinality;
-import org.eclipse.viatra.dse.api.strategy.interfaces.IStrategy;
+import org.eclipse.viatra.dse.cluster.RemoteDesignSpaceSynchronizer;
+import org.eclipse.viatra.dse.cluster.interfaces.IGlobalConstraintFactory;
 import org.eclipse.viatra.dse.cluster.interfaces.IObjectiveFactory;
 import org.eclipse.viatra.dse.cluster.interfaces.IProblemServer;
 import org.eclipse.viatra.dse.cluster.interfaces.IStrategyFactory;
 import org.eclipse.viatra.dse.cluster.interfaces.ITransformationRuleFactory;
-import org.eclipse.viatra.dse.objectives.IObjective;
 import org.eclipse.viatra.dse.statecode.IStateCoderFactory;
 import org.eclipse.viatra.dse.statecode.graph.GraphHasherFactory;
 import org.eclipse.viatra.dse.statecode.incrementalgraph.IncrementalGraphHasherFactory;
@@ -57,6 +49,8 @@ public class ClientConfigurator implements Runnable {
 
 	private final String initialModelXMI;
 
+	private final String identifier;
+
 	/**
 	 * This class configures the local DSE instance to execute the job defined
 	 * by the host that is reachable on the specified Akka recall address.
@@ -66,11 +60,12 @@ public class ClientConfigurator implements Runnable {
 	 * @param recallAddress
 	 *            the remote Akka recall address
 	 */
-	public ClientConfigurator(Client node, String recallAddress, String initialModelXMI) {
+	public ClientConfigurator(Client node, String recallAddress, String initialModelXMI, String identifier) {
 		super();
 		this.node = node;
 		this.recallAddress = recallAddress;
 		this.initialModelXMI = initialModelXMI;
+		this.identifier = identifier;
 	}
 
 	private DesignSpaceExplorer dse;
@@ -79,26 +74,38 @@ public class ClientConfigurator implements Runnable {
 	public void run() {
 
 		try {
-			dse = configure(recallAddress);
-
-			// IDSEProblemHost host =
-			// node.getExplorerActors().get(recallAddress);
-			// String ping = host.ping();
-
+			dse = configure(recallAddress, identifier);
 			log.debug("The dse task from the addess " + recallAddress
 					+ " that was set up with the DSEJobConfigurator has finished.");
-
-			// System.out.println("Number of states: " +
-			// dse.getNumberOfStates());
-			// System.out.println("Number of transitions: " +
-			// dse.getNumberOfTransitions());
-			// System.out.println("Number of deadlocks (solutions): " +
-			// dse.getAllSolutions().size());
-		} catch (ClassNotFoundException | IllegalAccessException | IllegalArgumentException | InvocationTargetException
-				| NoSuchMethodException | SecurityException | NoSuchFieldException | InstantiationException
-				| IOException e) {
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IllegalAccessException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IllegalArgumentException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (NoSuchMethodException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (SecurityException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (NoSuchFieldException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (InstantiationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (IncQueryException e) {
+			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
@@ -121,7 +128,7 @@ public class ClientConfigurator implements Runnable {
 	 * @throws InstantiationException
 	 * @throws IncQueryException
 	 */
-	private DesignSpaceExplorer configure(String recallAddress) throws ClassNotFoundException, IllegalAccessException,
+	private DesignSpaceExplorer configure(String recallAddress, String identifier) throws ClassNotFoundException, IllegalAccessException,
 			IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException,
 			NoSuchFieldException, IOException, InstantiationException, IncQueryException {
 
@@ -133,15 +140,18 @@ public class ClientConfigurator implements Runnable {
 
 		// get relevant object references
 		dse = (DesignSpaceExplorer) node.getExplorers().get(recallAddress);
-		dse.setDesignspace(new RemoteDesignSpace(node.getDesignSpaceActors().get(recallAddress)));
 
-		int maxThreads = getNumberOfProcessors() + EXTRA_WORKER_THREADS;
-		maxThreads /= 2;
-		 maxThreads = 6;
+		// create and set the ds synchronizer
+		RemoteDesignSpaceSynchronizer listener = new RemoteDesignSpaceSynchronizer(dse.getGlobalContext().getDesignSpace(), node.getDesignSpaceActors().get(recallAddress), identifier);		
+		dse.getGlobalContext().getDesignSpace().addDesignSpaceChangedListener(listener);
+		node.syncer.put(recallAddress, listener);
+
+		// configure threads for the node, use the override if there is one set
 		if (fixedThreads != null) {
 			dse.setMaxNumberOfThreads(fixedThreads);
 			log.info("Configuring max number of threads: " + fixedThreads + " (HOST OVERRIDE)");
 		} else {
+			int maxThreads = getNumberOfProcessors() / 2 + EXTRA_WORKER_THREADS;
 			dse.setMaxNumberOfThreads(maxThreads);
 			log.info("Configuring max number of threads: " + maxThreads + " (Core count: " + getNumberOfProcessors()
 					+ " Extra: " + EXTRA_WORKER_THREADS + ")");
@@ -190,7 +200,6 @@ public class ClientConfigurator implements Runnable {
 			dse.setStateCoderFactory(iStateCoderFactory);
 		}
 		
-		
 		// configure Transformation rules
 		List<String> transformationRuleDefinitions = host.getTransformationRuleFactories();
 		for (String def : transformationRuleDefinitions) {
@@ -200,7 +209,7 @@ public class ClientConfigurator implements Runnable {
 
 			DSETransformationRule<?, ?> rule = factory.create();
 			dse.addTransformationRule(rule);
-			RemoteTransition.ruleMap.put(rule.getName(), rule);
+			listener.ruleMeta.put(rule.getName(), rule);
 		}
 
 		// configure objectives
@@ -213,49 +222,32 @@ public class ClientConfigurator implements Runnable {
 			dse.addObjective(factory.create(dse));
 		}
 
+		// configure Constraints
+		List<String> constraintFactories = host.getConstraintFactories();
+
+		for (String cFact : constraintFactories) {
+			Class<?> objecttiveClass = cl.loadClass(cFact);
+			Constructor<?> constructor = objecttiveClass.getConstructor();
+			IGlobalConstraintFactory f = (IGlobalConstraintFactory) constructor.newInstance();
+
+			dse.addGlobalConstraint(f.create());
+		}
+
+		// configure Strategy
 		String strategyName = host.getStrategyName();
 		Class<?> ruleFactoryClass = cl.loadClass(strategyName);
 		Constructor<?> constructor = ruleFactoryClass.getConstructor();
 		IStrategyFactory factory = (IStrategyFactory) constructor.newInstance();
 
-		dse.startExploration(factory.create());
+		// configure solution store
+		dse.setSolutionStore(new RemoteSolutionStore());
 
-		System.out.println("Config done");
+		// starting exploration locally
+		log.info("Config done. Initiating exploration.");
+		dse.startExploration(factory.create(), false, -1);
+		log.info("Exploration in progress");
 
 		return dse;
-
-		//
-		// // configure any additional options defined through the configuration
-		// map
-		// Map<String, List<String>> configurationMap =
-		// host.getConfigurationMap();
-		// for (String key : configurationMap.keySet()) {
-		// // create the parameter list
-		// List<Object> parameters = new ArrayList<>();
-		//
-		// // download the parameters
-		// for (String value : configurationMap.get(key)) {
-		// Method method = IDSEProblemHost.class.getMethod(value, null);
-		// parameters.add(method.invoke(host));
-		// }
-		//
-		// Object[] parameterArray = parameters.toArray(new
-		// Object[parameters.size()]);
-		//
-		// List<Class<?>> types = new ArrayList();
-		// for (Object o : parameters) {
-		// types.add(o.getClass());
-		// }
-		//
-		// Class<?>[] classes = types.toArray(new Class<?>[types.size()]);
-		//
-		// // apply to the initiator
-		//
-		// Method method = initiatorObject.getClass().getMethod(key, classes);
-		// method.invoke(initiatorObject, parameterArray);
-		// }
-
-		// System.out.println("Exiting");
 	}
 
 	private EObject xmiToModel(String xmiString) throws IOException {

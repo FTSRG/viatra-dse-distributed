@@ -27,6 +27,7 @@ import org.eclipse.viatra.dse.api.DSETransformationRule;
 import org.eclipse.viatra.dse.api.DesignSpaceExplorer;
 import org.eclipse.viatra.dse.api.strategy.interfaces.IStrategy;
 import org.eclipse.viatra.dse.base.GlobalContext;
+import org.eclipse.viatra.dse.cluster.IDesignSpaceChange;
 import org.eclipse.viatra.dse.cluster.interfaces.IGlobalConstraintFactory;
 import org.eclipse.viatra.dse.cluster.interfaces.IObjectiveFactory;
 import org.eclipse.viatra.dse.cluster.interfaces.IProblemServer;
@@ -35,9 +36,7 @@ import org.eclipse.viatra.dse.cluster.interfaces.IProcessingClient;
 import org.eclipse.viatra.dse.cluster.interfaces.IRemoteDesignSpace;
 import org.eclipse.viatra.dse.cluster.interfaces.IStrategyFactory;
 import org.eclipse.viatra.dse.cluster.interfaces.ITransformationRuleFactory;
-import org.eclipse.viatra.dse.designspace.api.DesignSpaceExporter;
 import org.eclipse.viatra.dse.designspace.api.IDesignSpace;
-import org.eclipse.viatra.dse.monitor.ExplorationStatistics;
 import org.eclipse.viatra.dse.statecode.IStateCoderFactory;
 import org.eclipse.viatra.dse.util.EMFHelper;
 
@@ -56,7 +55,6 @@ public class ClusteredDesignSpaceExplorer {
 	private final ClusterConfig config;
 
 	public Integer fixedThreads = null;
-	private final ExplorationStatistics stats = new ExplorationStatistics();
 
 	private static final Logger logger = Logger.getLogger(ClusteredDesignSpaceExplorer.class.getName());
 
@@ -64,7 +62,7 @@ public class ClusteredDesignSpaceExplorer {
 
 	private final ActorSystem system;
 
-	private final IProblemServerPrivate problemHostActor;
+	final IProblemServerPrivate problemHostActor;
 
 	private final IRemoteDesignSpace designSpaceActor;
 
@@ -160,8 +158,6 @@ public class ClusteredDesignSpaceExplorer {
 			long nowDSTransitionSize = designSpaceActor.getNumberOfTransitions();
 			long nowDSFiredTransitionSize = designSpaceActor.getNumberOfFiredTransitions();
 
-			stats.putMeasurement(nowDSStateSize, Math.max(nowDSTransitionSize - nowDSFiredTransitionSize, 0),
-					nowDSFiredTransitionSize);
 
 			String nodeStateText;
 			String dsStateText;
@@ -220,15 +216,9 @@ public class ClusteredDesignSpaceExplorer {
 		}
 
 		long processFinish = System.currentTimeMillis();
-		stats.finish(designSpaceActor.getNumberOfStates(),
-				designSpaceActor.getNumberOfTransitions() - designSpaceActor.getNumberOfFiredTransitions(),
-				designSpaceActor.getNumberOfFiredTransitions());
 
-		DesignSpaceExporter designSpaceExporter = new DesignSpaceExporter(true);
 		// designSpaceExporter.exportDesignSpace(getGlobalContext().getDesignSpace());
 
-		DesignSpaceExporter designSpaceExporter2 = new DesignSpaceExporter(false);
-		designSpaceExporter2.exportDesignSpace(getGlobalContext().getDesignSpace());
 
 		system.shutdown();
 		system.awaitTermination();
@@ -470,9 +460,6 @@ public class ClusteredDesignSpaceExplorer {
 		return constraintFactories;
 	}
 
-	public ExplorationStatistics getStats() {
-		return stats;
-	}
 
 	public List<String> getObjectiveFactories() {
 		return objectiveFactories;
@@ -566,5 +553,13 @@ public class ClusteredDesignSpaceExplorer {
 
 	public GlobalContext getGlobalContext() {
 		return globalContext;
+	}
+
+	public IProblemServerPrivate getServer() {
+		return problemHostActor;
+	}
+
+	public void send(List<IDesignSpaceChange> changes, String targetNode) {
+		throw new UnsupportedOperationException();
 	}
 }

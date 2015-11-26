@@ -11,6 +11,7 @@ import org.eclipse.viatra.dse.designspace.api.IState;
 import org.eclipse.viatra.dse.designspace.api.ITransition;
 import org.eclipse.viatra.dse.designspace.api.TransitionMetaData;
 
+@Deprecated
 public class RemoteTransition implements ITransition {
 
 	private static final Logger log = Logger.getLogger(RemoteTransition.class);

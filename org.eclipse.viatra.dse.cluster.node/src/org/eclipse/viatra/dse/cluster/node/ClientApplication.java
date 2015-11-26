@@ -90,8 +90,15 @@ public class ClientApplication {
 			public Client create() {
 				try {
 					return new Client(system);
-				} catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException e) {
+				} catch (NoSuchFieldException e) {
 					throw new Error("Class loader hack has failed. Running is not possible if this hack is not working.", e);
+				} catch (SecurityException e) {
+					throw new Error("Class loader hack has failed. Running is not possible if this hack is not working.", e);
+				} catch (IllegalArgumentException e) {
+					throw new Error("Class loader hack has failed. Running is not possible if this hack is not working.", e);
+				} catch (IllegalAccessException e) {
+					throw new Error("Class loader hack has failed. Running is not possible if this hack is not working.", e);
+
 				}
 			}
 		}), IProblemServer.REMOTE_NODE_NAME);

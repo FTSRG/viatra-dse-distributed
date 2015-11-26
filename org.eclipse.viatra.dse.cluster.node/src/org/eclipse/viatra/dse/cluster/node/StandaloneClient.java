@@ -4,6 +4,8 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -31,8 +33,26 @@ public class StandaloneClient implements IApplication {
 
 	@Override
 	public Object start(IApplicationContext context) throws Exception {
+		String[] args = (String[]) context.getArguments().get("application.args");
+
+		Map<String, String> params = new HashMap<String, String>();
+		boolean key = true;
+		String keyName = null;
+		for (String s : args) {
+			if (key) {
+				keyName = s;
+				key = false;
+			} else {
+				params.put(keyName, s);
+				keyName = null;
+				key = true;
+			}
+		}
+
+		System.out.println("Port: " + params.get("-port"));
+		preferredPort = params.get("-port");
 		System.out.println("DSE CLIENT Started");
-		log.getRootLogger().setLevel(Level.DEBUG);
+		Logger.getRootLogger().setLevel(Level.INFO);
 		ClientApplication instance = new ClientApplication();
 
 		Enumeration<NetworkInterface> networkInterfaces;

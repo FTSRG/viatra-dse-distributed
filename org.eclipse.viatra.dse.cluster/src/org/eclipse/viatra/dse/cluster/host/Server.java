@@ -42,7 +42,7 @@ public class Server implements IProblemServerPrivate {
 
 	private final ActorSystem system;
 
-	private Map<String, IProcessingClient> nodeRefs = new HashMap<String, IProcessingClient>();
+	Map<String, IProcessingClient> nodeRefs = new HashMap<String, IProcessingClient>();
 
 	public Server(ClusteredDesignSpaceExplorer cdse, ActorSystem system, String serviceIP, String servicePort) {
 		this.cdse = cdse;
@@ -136,7 +136,7 @@ public class Server implements IProblemServerPrivate {
 					if (cdse.fixedThreads != null) {
 						node.fixThreads(cdse.fixedThreads);
 					}
-					node.submitProblem(recallAddress, dsAddress, DesignSpaceExplorer.class.getCanonicalName(), null);
+					node.submitProblem(recallAddress, dsAddress, DesignSpaceExplorer.class.getCanonicalName(), null, nodeAddress);
 				}
 			} catch (Exception e) {
 				log.error(e);
@@ -220,7 +220,7 @@ public class Server implements IProblemServerPrivate {
 			log.debug("Failed to restart node at address " + nodeAddress);
 			return false;
 		} else {
-			node.submitProblem(recallAddress, dsAddress, DesignSpaceExplorer.class.getCanonicalName(), stateXMI);
+			node.submitProblem(recallAddress, dsAddress, DesignSpaceExplorer.class.getCanonicalName(), stateXMI, nodeAddress);
 			log.debug("Restart request sent to " + nodeAddress);
 			return true;
 		}
@@ -249,6 +249,16 @@ public class Server implements IProblemServerPrivate {
 	@Override
 	public String getStateCoderFactory() {
 		return cdse.getGlobalContext().getStateCoderFactory().getClass().getName();
+	}
+
+	@Override
+	public IProcessingClient getNode(String nodeAddress) {
+		return nodeRefs.get(nodeAddress);
+	}
+
+	@Override
+	public String getRecallAddress() {
+		return recallAddress;
 	}
 
 }
